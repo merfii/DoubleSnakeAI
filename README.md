@@ -1,2 +1,2 @@
 # DoubleSnakeAI
-An AI program for Double Snake Game at Peking University
+An AI program for Double Snake Game in Peking University
