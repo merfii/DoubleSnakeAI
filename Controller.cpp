@@ -7,12 +7,18 @@
 
 using  namespace std;
 
+static struct{
+bool running;
+int keypressed;
+}thread_comm;
+
+
 //static string initData("{\"requests\":[{\"y\":1,\"x\":1,\"width\":10,\"obstacle\":[{\"y\":5,\"x\":1},{\"y\":6,\"x\":15},{\"y\":9,\"x\":3},{\"y\":2,\"x\":13},{\"y\":9,\"x\":15},{\"y\":2,\"x\":1},{\"y\":9,\"x\":13},{\"y\":2,\"x\":3},{\"y\":5,\"x\":2},{\"y\":6,\"x\":14},{\"y\":5,\"x\":14},{\"y\":6,\"x\":2},{\"y\":9,\"x\":10},{\"y\":2,\"x\":6}],\"height\":15}],\"responses\":[]}");
 static string initData("{\"requests\":[{\"y\":1,\"x\":1,\"width\":12,\"obstacle\":[{\"y\":5,\"x\":14},{\"y\":8,\"x\":3},{\"y\":7,\"x\":9},{\"y\":6,\"x\":8},{\"y\":2,\"x\":9},{\"y\":11,\"x\":8},{\"y\":5,\"x\":1},{\"y\":8,\"x\":16},{\"y\":5,\"x\":3},{\"y\":8,\"x\":14},{\"y\":9,\"x\":2},{\"y\":4,\"x\":15},{\"y\":1,\"x\":7},{\"y\":12,\"x\":10},{\"y\":9,\"x\":1},{\"y\":4,\"x\":16},{\"y\":1,\"x\":2},{\"y\":12,\"x\":15}],\"height\":16}],\"responses\":[]}");
-extern CRITICAL_SECTION displock;
 static MapBasic mapBasic;
 static Snake snake0,snake1;
 static int step;    //当前(还没走)为第step回合 此时已有前step-1步的数据
+
 static int resolve(string &boutString, int nstep);
 static string snakeMove(string &boutString,int dir1,int dir2);
 static int resolveDir(string ret);
@@ -20,15 +26,15 @@ string mai(string inputString);
 
 void extern_init()
 {
-    running=true;
-    keypress=-1;
+    thread_comm.running=true;
+    thread_comm.keypressed=-1;
 }
 
 
 void runMain()
 {
     step=resolve(initData,100);
-    disp(mapBasic,snake0,snake1);
+    updateDisp(mapBasic,snake0,snake1);
 
     string runningdata,botret;
     runningdata=initData;
@@ -36,19 +42,19 @@ void runMain()
     while(1)
     {
         int key;
-        if(!running)break;
+        if(!thread_comm.running)break;
         Sleep(100);
 
-        EnterCriticalSection(&displock);
+        DISPLOCK();
 
-        if(keypress==-1)
+        if(thread_comm.keypressed==-1)
         {
-            LeaveCriticalSection(&displock);
+             DISPUNLOCK();
         }else
         {
-            key=keypress;
-            keypress=-1;
-            LeaveCriticalSection(&displock);
+            key=thread_comm.keypressed;
+            thread_comm.keypressed=-1;
+            DISPUNLOCK();
 
             switch(key)
             {
@@ -72,7 +78,7 @@ void runMain()
             }
             resolve(runningdata,100);
               //绘图
-            disp(mapBasic,snake0,snake1);
+            updateDisp(mapBasic,snake0,snake1);
         }
     }
 }
@@ -158,6 +164,24 @@ static int resolveDir(string ret)
     return input["response"]["direction"].asInt();
     //printf("Json Ret: %d\n",ss);
 }
+
+
+
+void keyPressed(int key)
+{
+    DISPLOCK();
+    thread_comm.keypressed=key;
+    DISPUNLOCK();
+}
+
+void stopRun()
+{
+    DISPLOCK();
+    thread_comm.running=false;
+    DISPUNLOCK();
+}
+
+
 /*
 jsoncpp test code
 void  preCal()

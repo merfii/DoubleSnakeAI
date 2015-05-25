@@ -1,7 +1,7 @@
 #ifndef GUI_H_INCLUDED
 #define GUI_H_INCLUDED
 
-#define REPAINT_INTERVAL 40     //ms
+#define REPAINT_INTERVAL 20     //ms
 #define SCREEN_W 1000
 #define SCREEN_H 700
 #define BLOCK_SIZE 50
@@ -10,10 +10,13 @@
 #include<list>
 using namespace  std;
 
-extern bool running;
-extern int keypress;
 void extern_init();
 void runMain();
+void keyPressed(int key);
+void stopRun();
+void DISPLOCK();
+void DISPUNLOCK();
+
 
 //0 вС 1об 2ср 3 ио
 static const int dx[4]= {-1,0,1,0};
@@ -113,6 +116,5 @@ public:
     }
 };
 
-void disp(MapBasic &mb,Snake &snk0,Snake &snk1);
-
+void updateDisp(MapBasic &mb,Snake &snk0,Snake &snk1);
 #endif // GUI_H_INCLUDED

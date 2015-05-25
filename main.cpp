@@ -9,18 +9,18 @@ LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
 /*  Make the class name into a global variable  */
 char szClassName[ ] = "DoubleSnakeSimulator";
 
-//Thread Function
 
+static MapBasic mapBasic;
+static Snake snake0,snake1;
+static struct{
 CRITICAL_SECTION displock;
-bool running;
-MapBasic mapBasic;
-Snake snake0,snake1;
-int keypress;
+bool refresh;
+}thread_comm;
 
-void drawBox(HDC hdc,int x,int y);
-void drawRect(HDC hdc,COLORREF color,int x1,int y1,int x2,int y2);
-void drawSnake(HDC hdc,COLORREF color,Snake &snake);
-void keyboard(WPARAM wParam);
+static void drawBox(HDC hdc,int x,int y);
+static void drawRect(HDC hdc,COLORREF color,int x1,int y1,int x2,int y2);
+static void drawSnake(HDC hdc,COLORREF color,Snake &snake);
+static void keyboard(WPARAM wParam);
 
 static void ThreadFunction(void* pParam)
 {
@@ -35,7 +35,7 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
 {
     extern_init();
 
-    InitializeCriticalSection(&displock);
+    InitializeCriticalSection(&(thread_comm.displock));
     //创建线程
     _beginthread(ThreadFunction,0,NULL);
 
@@ -94,7 +94,7 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
         DispatchMessage(&messages);
     }
 
-    DeleteCriticalSection(&displock);
+    DeleteCriticalSection(&(thread_comm.displock));
     /* The program return-value is 0 - The value that PostQuitMessage() gave */
     return messages.wParam;
 }
@@ -115,11 +115,18 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
 
         break;
     case WM_TIMER:
-        RedrawWindow(hwnd,NULL,NULL,RDW_ERASE|RDW_INVALIDATE);
+        DISPLOCK();
+        if(thread_comm.refresh)
+        {
+            thread_comm.refresh=false;
+            RedrawWindow(hwnd,NULL,NULL,RDW_ERASE|RDW_INVALIDATE);
+        }
+        DISPUNLOCK();
         break;
 
     case WM_ERASEBKGND:
-        return 1;
+        return 0;
+
     case WM_PAINT:
     {
 
@@ -138,7 +145,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             EndPaint(hwnd,&ps);
         }
 
-        EnterCriticalSection(&displock);
+        DISPLOCK();
         hdc = BeginPaint(hwnd, &ps);
         hOld   = SelectObject(hdcMem, hbmMem);
 
@@ -180,7 +187,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             SelectObject(hdcMem, hOld);
 
         EndPaint(hwnd,&ps);
-        LeaveCriticalSection(&displock);
+        DISPUNLOCK();
         break;
     }
     case WM_KEYDOWN:
@@ -188,7 +195,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
         break;
 
     case WM_DESTROY:
-        running=false;
+        stopRun();
         DeleteObject(hbmMem);
         DeleteDC    (hdcMem);
         PostQuitMessage (0);       /* send a WM_QUIT to the message queue */
@@ -202,14 +209,14 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
 
 
 
-void disp(MapBasic &mb,Snake &snk0,Snake &snk1)
+void updateDisp(MapBasic &mb,Snake &snk0,Snake &snk1)
 {
-
-    EnterCriticalSection(&displock);
+    DISPLOCK();
     mapBasic=mb;
     snake0=snk0;
     snake1=snk1;
-    LeaveCriticalSection(&displock);
+    thread_comm.refresh=true;
+    DISPUNLOCK();
 }
 
 void drawRect(HDC hdc,COLORREF color,int x1,int y1,int x2,int y2)
@@ -229,7 +236,7 @@ void drawRect(HDC hdc,COLORREF color,int x1,int y1,int x2,int y2)
 
 #include <list>
 #define SNAKE_GAP 2
-void drawSnake(HDC hdc,COLORREF color,Snake &snake)
+static void drawSnake(HDC hdc,COLORREF color,Snake &snake)
 {
     RECT lprc;
     HBRUSH hBrush = CreateSolidBrush(color);
@@ -298,7 +305,7 @@ void drawSnake(HDC hdc,COLORREF color,Snake &snake)
 }
 
 
-void drawBox(HDC hdc,int x,int y)
+static void drawBox(HDC hdc,int x,int y)
 {
     RECT lprc;
     HBRUSH hPurpleBrush = CreateSolidBrush(RGB(100, 20, 40));
@@ -329,48 +336,48 @@ void drawBox(HDC hdc,int x,int y)
 }
 
 
-void keyboard(WPARAM wParam)
+static void keyboard(WPARAM wParam)
 {
-    EnterCriticalSection(&displock);
     switch (wParam)
     {
     case VK_UP:
-        keypress=3;
+        keyPressed(3);
         break;
 
     case VK_DOWN:
-        keypress=1;
+        keyPressed(1);
         break;
 
     case VK_LEFT:
-        keypress=0;
+        keyPressed(0);
         break;
 
     case VK_RIGHT:
-        keypress=2;
+        keyPressed(2);
         break;
 
        case VK_HOME:
-        keypress=10;
+        keyPressed(10);
         break;
 
     case VK_END:
-        keypress=11;
+        keyPressed(11);
         break;
-/*
-    case VK_PRIOR:
-        SendMessage(hwnd, WM_VSCROLL, SB_PAGEUP, 0);
-        break;
-
-    case VK_NEXT:
-        SendMessage(hwnd, WM_VSCROLL, SB_PAGEDOWN, 0);
-        break;
-        */
     }
-    LeaveCriticalSection(&displock);
 }
+
+void DISPLOCK()
+{
+    EnterCriticalSection(&(thread_comm.displock));
+}
+
+void DISPUNLOCK()
+{
+    LeaveCriticalSection(&(thread_comm.displock));
+}
+
 /*************Utility****************/
-void checkScreenProperty(HDC hdc)
+static void checkScreenProperty(HDC hdc)
 {
         HBITMAP memBmp=CreateCompatibleBitmap(hdc,
                         GetSystemMetrics(SM_CXSCREEN),
