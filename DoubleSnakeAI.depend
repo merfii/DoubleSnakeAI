@@ -1,0 +1,110 @@
+# depslib dependency file v1.0
+1432493281 source:c:\users\mzf\documents\github\doublesnakeai\recursive.cpp
+	<cstdio>
+	<cstdlib>
+	<cstring>
+	<iostream>
+	<list>
+	<string>
+	<ctime>
+	"jsoncpp/json.h"
+
+1432361605 c:\users\mzf\documents\github\doublesnakeai\jsoncpp\json.h
+	<cpptl/config.h>
+	"config.h"
+	"forwards.h"
+	"forwards.h"
+	<string>
+	<vector>
+	<map>
+	<cpptl/smallmap.h>
+	<cpptl/forwards.h>
+	"features.h"
+	"value.h"
+	<deque>
+	<iosfwd>
+	<stack>
+	<string>
+	"value.h"
+	<vector>
+	<string>
+	<stdlib.h>
+	"config.h"
+	<stdexcept>
+
+1432361533 source:c:\users\mzf\documents\github\doublesnakeai\jsoncpp.cpp
+	"jsoncpp/json.h"
+	<json/assertions.h>
+	<json/reader.h>
+	<json/value.h>
+	"json_tool.h"
+	<utility>
+	<cstdio>
+	<cassert>
+	<cstring>
+	<istream>
+	<stdlib.h>
+	<assert.h>
+	<json/assertions.h>
+	<json/value.h>
+	<json/writer.h>
+	"json_batchallocator.h"
+	<math.h>
+	<sstream>
+	<utility>
+	<cstring>
+	<cassert>
+	<cpptl/conststring.h>
+	<cstddef>
+	"json_internalarray.inl"
+	"json_internalmap.inl"
+	"json_valueiterator.inl"
+	<json/writer.h>
+	"json_tool.h"
+	<utility>
+	<assert.h>
+	<stdio.h>
+	<string.h>
+	<sstream>
+	<iomanip>
+	<math.h>
+	<float.h>
+
+1432489489 source:c:\users\mzf\documents\github\doublesnakeai\main.cpp
+	<windows.h>
+	<process.h>
+	<stdio.h>
+	"GUI.h"
+	<list>
+
+1432364678 c:\users\mzf\documents\github\doublesnakeai\consoledraw\condraw.h
+	<mmsystem.h>
+	<windows.h>
+	<stdio.h>
+	<stdlib.h>
+	<conio.h>
+	<memory.h>
+	<process.h>
+	<time.h>
+	"ConColors.h"
+	"ConDefines.h"
+	"mmsystem.h"
+
+1432363611 c:\users\mzf\documents\github\doublesnakeai\consoledraw\concolors.h
+
+1432364073 c:\users\mzf\documents\github\doublesnakeai\consoledraw\condefines.h
+
+1432364426 source:c:\users\mzf\documents\github\doublesnakeai\consoledraw\condraw.cpp
+	"ConDraw.h"
+	<ctype.h>
+
+1432485409 c:\users\mzf\documents\github\doublesnakeai\gui.h
+	<list>
+
+1432493175 source:c:\users\mzf\documents\github\doublesnakeai\controller.cpp
+	<windows.h>
+	<string>
+	<cstdio>
+	"jsoncpp/json.h"
+	"GUI.h"
+
