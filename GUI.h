@@ -2,8 +2,8 @@
 #define GUI_H_INCLUDED
 
 #define REPAINT_INTERVAL 20     //ms
-#define SCREEN_W 1000
-#define SCREEN_H 700
+#define WINDOW_W 1000
+#define WINDOW_H 700
 #define BLOCK_SIZE 50
 #define ABS(a) ((a>0)?(a):(-a))
 

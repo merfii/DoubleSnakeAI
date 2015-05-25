@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <string>
 #include <cstdio>
+#include <vector>
 #include "jsoncpp/json.h"
 #include "GUI.h"
 
@@ -13,11 +14,12 @@ int keypressed;
 }thread_comm;
 
 
-//static string initData("{\"requests\":[{\"y\":1,\"x\":1,\"width\":10,\"obstacle\":[{\"y\":5,\"x\":1},{\"y\":6,\"x\":15},{\"y\":9,\"x\":3},{\"y\":2,\"x\":13},{\"y\":9,\"x\":15},{\"y\":2,\"x\":1},{\"y\":9,\"x\":13},{\"y\":2,\"x\":3},{\"y\":5,\"x\":2},{\"y\":6,\"x\":14},{\"y\":5,\"x\":14},{\"y\":6,\"x\":2},{\"y\":9,\"x\":10},{\"y\":2,\"x\":6}],\"height\":15}],\"responses\":[]}");
-static string initData("{\"requests\":[{\"y\":1,\"x\":1,\"width\":12,\"obstacle\":[{\"y\":5,\"x\":14},{\"y\":8,\"x\":3},{\"y\":7,\"x\":9},{\"y\":6,\"x\":8},{\"y\":2,\"x\":9},{\"y\":11,\"x\":8},{\"y\":5,\"x\":1},{\"y\":8,\"x\":16},{\"y\":5,\"x\":3},{\"y\":8,\"x\":14},{\"y\":9,\"x\":2},{\"y\":4,\"x\":15},{\"y\":1,\"x\":7},{\"y\":12,\"x\":10},{\"y\":9,\"x\":1},{\"y\":4,\"x\":16},{\"y\":1,\"x\":2},{\"y\":12,\"x\":15}],\"height\":16}],\"responses\":[]}");
-static MapBasic mapBasic;
+static string mapData1("{\"requests\":[{\"y\":1,\"x\":1,\"width\":10,\"obstacle\":[{\"y\":5,\"x\":1},{\"y\":6,\"x\":15},{\"y\":9,\"x\":3},{\"y\":2,\"x\":13},{\"y\":9,\"x\":15},{\"y\":2,\"x\":1},{\"y\":9,\"x\":13},{\"y\":2,\"x\":3},{\"y\":5,\"x\":2},{\"y\":6,\"x\":14},{\"y\":5,\"x\":14},{\"y\":6,\"x\":2},{\"y\":9,\"x\":10},{\"y\":2,\"x\":6}],\"height\":15}],\"responses\":[]}");
+static string mapData2("{\"requests\":[{\"y\":1,\"x\":1,\"width\":12,\"obstacle\":[{\"y\":5,\"x\":14},{\"y\":8,\"x\":3},{\"y\":7,\"x\":9},{\"y\":6,\"x\":8},{\"y\":2,\"x\":9},{\"y\":11,\"x\":8},{\"y\":5,\"x\":1},{\"y\":8,\"x\":16},{\"y\":5,\"x\":3},{\"y\":8,\"x\":14},{\"y\":9,\"x\":2},{\"y\":4,\"x\":15},{\"y\":1,\"x\":7},{\"y\":12,\"x\":10},{\"y\":9,\"x\":1},{\"y\":4,\"x\":16},{\"y\":1,\"x\":2},{\"y\":12,\"x\":15}],\"height\":16}],\"responses\":[]}");
+static string mapData3("{\"requests\":[{\"y\":1,\"x\":1,\"width\":12,\"obstacle\":[{\"y\":9,\"x\":9},{\"y\":4,\"x\":4},{\"y\":12,\"x\":1},{\"y\":1,\"x\":12},{\"y\":5,\"x\":9},{\"y\":8,\"x\":4},{\"y\":1,\"x\":5},{\"y\":12,\"x\":8},{\"y\":3,\"x\":5},{\"y\":10,\"x\":8},{\"y\":11,\"x\":5},{\"y\":2,\"x\":8},{\"y\":9,\"x\":7},{\"y\":4,\"x\":6}],\"height\":12}],\"responses\":[]}");static MapBasic mapBasic;
 static Snake snake0,snake1;
-static int step;    //当前(还没走)为第step回合 此时已有前step-1步的数据
+static vector<string> history;
+static int steps;    //当前(还没走)为第step回合 此时已有前step-1步的数据
 
 static int resolve(string &boutString, int nstep);
 static string snakeMove(string &boutString,int dir1,int dir2);
@@ -33,17 +35,19 @@ void extern_init()
 
 void runMain()
 {
-    step=resolve(initData,100);
-    updateDisp(mapBasic,snake0,snake1);
+    history.push_back(mapData1);
 
-    string runningdata,botret;
-    runningdata=initData;
-    int fp=step;
+restart:
+
+    steps=resolve(history[0],100);
+    updateDisp(mapBasic,snake0,snake1);
+    string botret;
+    int fp=steps;
     while(1)
     {
         int key;
         if(!thread_comm.running)break;
-        Sleep(100);
+        Sleep(30);
 
         DISPLOCK();
 
@@ -63,27 +67,48 @@ void runMain()
                 case 1:
                 case 2:
                 case 3:
-                    botret=mai(runningdata);
-                    runningdata=snakeMove(runningdata,resolveDir(botret),key);
+                    botret=mai(history[fp]);
+                    if((int)history.size()<=fp+1)
+                        history.push_back(string());
+                    history[fp+1]=snakeMove(history[fp],resolveDir(botret),key);
+                    fp++;
+                    steps=fp;
                     break;
 
                 case 10:
                     fp++;
+                    if(fp>steps)
+                        fp=steps;
                     break;
 
                 case 11:
                     fp--;
                     if(fp<0)fp=0;
                     break;
+                case 21:
+                    history.clear();
+                    history.push_back(mapData1);
+                    goto restart;
+                    break;
+                case 22:
+                    history.clear();
+                    history.push_back(mapData2);
+                    goto restart;
+                    break;
+                case 23:
+                    history.clear();
+                    history.push_back(mapData3);
+                    goto restart;
+                    break;
             }
-            resolve(runningdata,100);
+            resolve(history[fp],100);
               //绘图
             updateDisp(mapBasic,snake0,snake1);
         }
     }
 }
 
-//返回当前(还没走)为第几回合
+//返回当前(已走)为第几回合
 static int resolve(string &boutString, int nstep)
 {
     Json::Reader reader;
@@ -136,7 +161,7 @@ static int resolve(string &boutString, int nstep)
         dire=input["requests"][i+1]["direction"].asInt();
         snake1.move(dire,i);
     }
-    return total+1;
+    return total;
 
 }
 
@@ -147,8 +172,6 @@ static string snakeMove(string &boutString,int dir0,int dir1)
     reader.parse(boutString,input);
 
     int total=input["responses"].size();
-    //当前(还没走)为第step回合
-    step=total+1;
     input["responses"][total]["direction"]=dir0;
     input["requests"][total+1]["direction"]=dir1;
     Json::FastWriter writer;

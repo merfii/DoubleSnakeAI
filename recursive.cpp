@@ -8,7 +8,7 @@
 #include "jsoncpp/json.h"
 
 #define MAX_MAP 25
-#define MAX_DEPS 8
+#define MAX_DEPS 6
 #define ABS(a) ((a>0)?(a):(-a))
 
 
@@ -17,6 +17,7 @@ using namespace std;
 //0 左 1下 2右 3 上
 static const int dx[4]= {-1,0,1,0};
 static const int dy[4]= {0,1,0,-1};
+
 
 class Snake
 {
@@ -56,18 +57,20 @@ public:
     }
 
 
-    void move(int dire,int steps)
+    void move(int dire)
     {
         x.push_front(x.front()+dx[dire]);
         y.push_front(y.front()+dy[dire]);
-        if(whetherGrow(steps))
-        {
-            length++;
-        }
-        else
+        length++;
+    }
+
+    void deleteTail(int steps)
+    {
+        if(!whetherGrow(steps))
         {
             x.pop_back();
             y.pop_back();
+            length--;
         }
     }
 
@@ -97,7 +100,7 @@ public:
 class MapBasic
 {
 public:
-    int m,n;
+    int w,h;
     bool obst[MAX_MAP][MAX_MAP];
     MapBasic()
     {
@@ -113,15 +116,15 @@ public:
 
     MapBasic *pMapBasic;
     bool obstAndSnake[MAX_MAP][MAX_MAP];
-    int m,n;
+    int w,h;
 
     Map(MapBasic *mapBasic,Snake &snake0,Snake &snake1)
     {
         pMapBasic=mapBasic;
-        m=pMapBasic->m;
-        n=pMapBasic->n;
-        for(int i=0; i<=m; i++)
-            for(int j=0; j<=n; j++)
+        w=pMapBasic->w;
+        h=pMapBasic->h;
+        for(int i=0; i<=w; i++)
+            for(int j=0; j<=h; j++)
                 obstAndSnake[i][j]=pMapBasic->obst[i][j];
 
         list<int>::iterator itx,ity;
@@ -138,11 +141,11 @@ public:
     Map(Map &preMap,Snake &snake0,Snake &snake1)
     {
         pMapBasic=preMap.pMapBasic;
-        m=pMapBasic->m;
-        n=pMapBasic->n;
+        w=pMapBasic->w;
+        h=pMapBasic->h;
 
-        for(int i=0; i<=m; i++)
-            for(int j=0; j<=n; j++)
+        for(int i=0; i<=w; i++)
+            for(int j=0; j<=h; j++)
                 obstAndSnake[i][j]=pMapBasic->obst[i][j];
 
         list<int>::iterator itx,ity;
@@ -156,7 +159,7 @@ public:
     }
     bool isValid(int x,int y)
     {
-        if(x>n || y>m || x<1 || y<1)
+        if(x>w || y>h || x<1 || y<1)
             return false;
         return !obstAndSnake[x][y];
     }
@@ -169,7 +172,7 @@ public:
     int layer;
     Rank()
     {
-        freedom=0;
+        freedom=-1;
         layer=0;
     }
 
@@ -187,56 +190,58 @@ public:
     }
 };
 
-static Rank predict(Map &map,Snake &snake0,Snake &snake1,
-             int dire,int depth,int steps)
+static int calDire(Map &map,Snake &snake0,Snake &snake1,int steps,int depths);
+static Rank predict(Map &oldmap,Snake &snk0,Snake &snk1,
+             int dire,int steps,int depths)
 {
-    if(!map.isValid(snake0.getNextX(dire),snake0.getNextY(dire)))
+    Snake *snake0=new Snake(snk0);
+    Snake *snake1=new Snake(snk1);
+    snake0->deleteTail(steps);
+    snake1->deleteTail(steps);
+    Map *map=new Map(oldmap,*snake0,*snake1);
+
+    if(!map->isValid(snake0->getNextX(dire),snake0->getNextY(dire)))
     {
+        delete snake0;
+        delete snake1;
+        delete map;
         return Rank(0,0);
     }
-    if(steps>=MAX_DEPS)
+
+    if(depths<=0)
     {
         int n=1;
-        while(map.isValid(snake0.getNextX_n(dire,n),snake0.getNextY_n(dire,n)))
+        while(map->isValid(snake0->getNextX_n(dire,n),snake0->getNextY_n(dire,n)))
             n++;
+        if(n<0)
+            printf("Bug Warnning! n=%d\n",n);
+        delete snake0;
+        delete snake1;
+        delete map;
         return Rank(n,0);
     }
     //可以走
 
-    Snake *snake0_next=new Snake(snake0);
-    Snake *snake1_next=new Snake(snake1);
-    //己方行动
-    snake0_next->move(dire,steps);
     //敌方行动
-    int k;
-    for(k=0; k<4; k++)
-    {
-        if(map.isValid(snake1.getNextX(k),snake1.getNextY(k)))
-        {
-            snake1_next->move(k,steps);
-            break;
-        }
-    }
-    if(k==4)
-    {
-        //敌方无处可走了，这样我方也无须再试探了
-        //但是这种情况少量出现不应影响我方决策，大量出现说明成杀，应当偏爱
-        delete snake0_next;
-        delete snake1_next;
-        return Rank(MAX_DEPS-depth,0);
-    }
-    if(snake0_next->x.front()==snake1_next->x.front()
+    snake1->move(calDire(*map,*snake1,*snake0,steps,depths-2));
+    //己方行动
+    snake0->move(dire);
+
+
+
+
+    if(snake0->x.front()==snake1->x.front()
             &&
-            snake0_next->y.front()==snake1_next->y.front()
+            snake0->y.front()==snake1->y.front()
       )
     {
-        //两蛇头撞在一起，我们不考虑这种情况
-        delete snake0_next;
-        delete snake1_next;
+        //两蛇头撞在一起
+        delete snake0;
+        delete snake1;
+        delete map;
         return Rank(1,0);
     }
 
-    Map *map_next=new Map(map,*snake0_next,*snake1_next);
     Rank rank(1,0);
     //己方行动方向
     for(int dire_next=0; dire_next<4; dire_next++)
@@ -245,28 +250,39 @@ static Rank predict(Map &map,Snake &snake0,Snake &snake1,
             continue;
 
         //下一级预测
-        rank+=predict(*map_next,*snake0_next,*snake1_next,
-                      dire_next,depth+1,steps+1);
+        rank+=predict(*map,*snake0,*snake1,
+                      dire_next,steps+1,depths-1);
 
     }
-    delete snake0_next;
-    delete snake1_next;
-    delete map_next;
-
+    delete snake0;
+    delete snake1;
+    delete map;
 
     return rank;
 }
 
-
-/*
-void outputSnakeBody(int id)    //调试语句
+//static string turnString[4]={"Left","Down","Right","Up"};
+static int calDire(Map &map,Snake &snake0,Snake &snake1,int steps,int depths)
 {
-	cout<<"Snake No."<<id<<endl;
-	for (list<point>::iterator iter=snake[id].begin();iter!=snake[id].end();++iter)
-		cout<<iter->x<<" "<<iter->y<<endl;
-	cout<<endl;
+    int best_dir=0;
+    Rank rank,best_rank;
+    for(int dire=0; dire<4; dire++)
+    {
+        rank=predict(map,snake0,snake1,
+                     dire,steps,depths);
+
+        if(rank.freedom>best_rank.freedom)
+        {
+            best_rank=rank;
+            best_dir=dire;
+        }
+    }
+    if(depths==MAX_DEPS)
+        printf("Best freedom: %3.1f\n",best_rank.freedom);
+    return best_dir;
 }
-*/
+
+
 #ifdef LOCAL
 string mai(string inputString)
 #else
@@ -288,21 +304,23 @@ int main()
 
     MapBasic mapBasic;
     Snake snake0,snake1;
-    mapBasic.n=
+    int steps;
+
+    mapBasic.w=
         input["requests"][(Json::Value::UInt) 0]["height"].asInt();  //棋盘宽度
-    mapBasic.m=
+    mapBasic.h=
         input["requests"][(Json::Value::UInt) 0]["width"].asInt();   //棋盘高度
 
     int x=input["requests"][(Json::Value::UInt) 0]["x"].asInt();  //读蛇初始化的信息
     if (x==1)
     {
         snake0.push(1,1);
-        snake1.push(mapBasic.n,mapBasic.m);
+        snake1.push(mapBasic.w,mapBasic.h);
     }
     else
     {
         snake1.push(1,1);
-        snake0.push(mapBasic.n,mapBasic.m);
+        snake0.push(mapBasic.w,mapBasic.h);
     }
     //处理地图中的障碍物
     int obsCount=input["requests"][(Json::Value::UInt) 0]["obstacle"].size();
@@ -315,44 +333,25 @@ int main()
     }
 
     //根据历史信息恢复现场
-    int total=input["responses"].size();
+    steps=input["responses"].size();
 
     int dire;
-    for (int i=0; i<total; i++)
+    for (int i=0; i<steps; i++)
     {
         dire=input["responses"][i]["direction"].asInt();
-        snake0.move(dire,i);
+        snake0.deleteTail(i);
+        snake0.move(dire);
 
         dire=input["requests"][i+1]["direction"].asInt();
-        snake1.move(dire,i);
-    }
+        snake1.deleteTail(i);
+        snake1.move(dire);    }
 
     Map map(&mapBasic,snake0,snake1);
 
-    int best_dir=0;
-    Rank rank,best_rank;
-    for(dire=0; dire<4; dire++)
-    {
-
-        Snake *snake0_next=new Snake(snake0);
-        Snake *snake1_next=new Snake(snake1);
-        Map *map_next=new Map(map,*snake0_next,*snake1_next);
-        rank=predict(*map_next,*snake0_next,*snake1_next,
-                     dire,0,total);
-        if(rank.freedom>best_rank.freedom)
-        {
-            best_rank=rank;
-            best_dir=dire;
-        }
-        delete snake0_next;
-        delete snake1_next;
-        delete map_next;
-    }
-
-    //做出一个决策
+    //做出决策
     Json::Value ret;
-    ret["response"]["direction"]=best_dir;
-
+    int dirr=calDire(map,snake0,snake1,steps,MAX_DEPS);
+    ret["response"]["direction"]=dirr;
 
     Json::FastWriter writer;
 #ifdef LOCAL

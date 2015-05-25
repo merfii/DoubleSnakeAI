@@ -69,11 +69,11 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
                0,                   /* Extended possibilites for variation */
                szClassName,         /* Classname */
                "Double Snake Game Simulator",       /* Title Text */
-               WS_OVERLAPPEDWINDOW, /* default window */
+               (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX), /* default window */
                CW_USEDEFAULT,       /* Windows decides the position */
                CW_USEDEFAULT,       /* where the window ends up on the screen */
-               SCREEN_W,                 /* The programs width */
-               SCREEN_H,                 /* and height in pixels */
+               WINDOW_W,                 /* The programs width */
+               WINDOW_H,                 /* and height in pixels */
                HWND_DESKTOP,        /* The window is a child-window to desktop */
                NULL,                /* No menu */
                hThisInstance,       /* Program Instance handler */
@@ -363,6 +363,21 @@ static void keyboard(WPARAM wParam)
     case VK_END:
         keyPressed(11);
         break;
+
+    case VK_F1:
+        keyPressed(21);
+        break;
+
+    case VK_F2:
+        keyPressed(22);
+        break;
+
+    case VK_F3:
+        keyPressed(23);
+        break;
+
+    default:
+        printf("key: %d\n",wParam);
     }
 }
 
@@ -377,6 +392,7 @@ void DISPUNLOCK()
 }
 
 /*************Utility****************/
+
 static void checkScreenProperty(HDC hdc)
 {
         HBITMAP memBmp=CreateCompatibleBitmap(hdc,
@@ -396,6 +412,5 @@ static void checkScreenProperty(HDC hdc)
         DeleteObject(memBmp);
 
 }
-
 
 
