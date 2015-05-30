@@ -15,11 +15,14 @@ static Snake snake0,snake1;
 static struct{
 CRITICAL_SECTION displock;
 bool refresh;
+int shortMap[25][25];
+
 }thread_comm;
 
 static void drawBox(HDC hdc,int x,int y);
 static void drawRect(HDC hdc,COLORREF color,int x1,int y1,int x2,int y2);
 static void drawSnake(HDC hdc,COLORREF color,Snake &snake);
+static void drawShortPath(HDC hdc);
 static void keyboard(WPARAM wParam);
 
 static void ThreadFunction(void* pParam)
@@ -157,8 +160,8 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
 
             drawRect(hdcMem,RGB(20, 2, 5),
                      BLOCK_SIZE-3,BLOCK_SIZE-3,
-                     mapBasic.n*BLOCK_SIZE+BLOCK_SIZE+3,
-                     mapBasic.m*BLOCK_SIZE+BLOCK_SIZE+3);
+                     mapBasic.w*BLOCK_SIZE+BLOCK_SIZE+3,
+                     mapBasic.h*BLOCK_SIZE+BLOCK_SIZE+3);
 
 
             //画障碍物
@@ -171,13 +174,15 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             drawSnake(hdcMem,RGB(10,180,20),snake0);
             drawSnake(hdcMem,RGB(180,10,20),snake1);
 
-
+            //画用于debug的路径数
+            //drawShortPath(hdcMem);
             //checkScreenProperty(hdc);
 
 /*
             GetClientRect(hwnd,&lprc);
             DrawText(hdc,"Hello World",-1,&lprc,DT_SINGLELINE|DT_CENTER|DT_VCENTER);
 */
+
             // Transfer the off-screen DC to the screen
             BitBlt(hdc, 0, 0,
                    ps.rcPaint.right-ps.rcPaint.left,
@@ -216,8 +221,20 @@ void updateDisp(MapBasic &mb,Snake &snk0,Snake &snk1)
     snake0=snk0;
     snake1=snk1;
     thread_comm.refresh=true;
+
     DISPUNLOCK();
 }
+
+void updateShortPath(int sm[32][32])
+{
+    DISPLOCK();
+    for(int i=0;i<25;i++)
+        for(int j=0;j<25;j++)
+            thread_comm.shortMap[i][j]=sm[i][j];
+
+    DISPUNLOCK();
+}
+
 
 void drawRect(HDC hdc,COLORREF color,int x1,int y1,int x2,int y2)
 {
@@ -240,66 +257,76 @@ static void drawSnake(HDC hdc,COLORREF color,Snake &snake)
 {
     RECT lprc;
     HBRUSH hBrush = CreateSolidBrush(color);
-    list<int>::iterator itx,ity;
+    list<Point>::iterator it;
     int preX=-1,preY=-1;  //为了一条蛇而不是一堆色块
-    for(itx=snake.x.begin(),ity=snake.y.begin();
-                itx!=snake.x.end(); itx++,ity++)
+
+    for(it=snake.points.begin();it!=snake.points.end();it++)
     {
         SetRect(&lprc,
-                *itx*BLOCK_SIZE+SNAKE_GAP,
-                *ity*BLOCK_SIZE+SNAKE_GAP,
-                *itx*BLOCK_SIZE+BLOCK_SIZE-SNAKE_GAP,
-                *ity*BLOCK_SIZE+BLOCK_SIZE-SNAKE_GAP
+                it->x*BLOCK_SIZE+SNAKE_GAP,
+                it->y*BLOCK_SIZE+SNAKE_GAP,
+                it->x*BLOCK_SIZE+BLOCK_SIZE-SNAKE_GAP,
+                it->y*BLOCK_SIZE+BLOCK_SIZE-SNAKE_GAP
                 );
         FillRect(hdc, &lprc, hBrush);
 
-        if(preX-*itx==1)
+        if(preX-(it->x)==1)
         {
             //向左
             SetRect(&lprc,
-                *itx*BLOCK_SIZE+BLOCK_SIZE-SNAKE_GAP,
-                *ity*BLOCK_SIZE+SNAKE_GAP,
-                *itx*BLOCK_SIZE+BLOCK_SIZE+SNAKE_GAP,
-                *ity*BLOCK_SIZE+BLOCK_SIZE-SNAKE_GAP
+                it->x*BLOCK_SIZE+BLOCK_SIZE-SNAKE_GAP,
+                it->y*BLOCK_SIZE+SNAKE_GAP,
+                it->x*BLOCK_SIZE+BLOCK_SIZE+SNAKE_GAP,
+                it->y*BLOCK_SIZE+BLOCK_SIZE-SNAKE_GAP
                 );
             FillRect(hdc, &lprc, hBrush);
-        }else if(preX-*itx==-1)
+        }else if(preX-(it->x)==-1)
         {
              //向右
             SetRect(&lprc,
-                *itx*BLOCK_SIZE-SNAKE_GAP,
-                *ity*BLOCK_SIZE+SNAKE_GAP,
-                *itx*BLOCK_SIZE+SNAKE_GAP,
-                *ity*BLOCK_SIZE+BLOCK_SIZE-SNAKE_GAP
+                it->x*BLOCK_SIZE-SNAKE_GAP,
+                it->y*BLOCK_SIZE+SNAKE_GAP,
+                it->x*BLOCK_SIZE+SNAKE_GAP,
+                it->y*BLOCK_SIZE+BLOCK_SIZE-SNAKE_GAP
                 );
             FillRect(hdc, &lprc, hBrush);
 
-        }else if(preY-*ity==-1)
+        }else if(preY-(it->y)==-1)
         {
             //向下移动
             SetRect(&lprc,
-                *itx*BLOCK_SIZE+SNAKE_GAP,
-                *ity*BLOCK_SIZE-SNAKE_GAP,
-                *itx*BLOCK_SIZE+BLOCK_SIZE-SNAKE_GAP,
-                *ity*BLOCK_SIZE+SNAKE_GAP
+                it->x*BLOCK_SIZE+SNAKE_GAP,
+                it->y*BLOCK_SIZE-SNAKE_GAP,
+                it->x*BLOCK_SIZE+BLOCK_SIZE-SNAKE_GAP,
+                it->y*BLOCK_SIZE+SNAKE_GAP
                 );
             FillRect(hdc, &lprc, hBrush);
 
-        }else if(preY-*ity==1)
+        }else if(preY-(it->y)==1)
         {
             //向上移动
             SetRect(&lprc,
-                *itx*BLOCK_SIZE+SNAKE_GAP,
+                it->x*BLOCK_SIZE+SNAKE_GAP,
                 preY*BLOCK_SIZE-SNAKE_GAP,
-                *itx*BLOCK_SIZE+BLOCK_SIZE-SNAKE_GAP,
+                it->x*BLOCK_SIZE+BLOCK_SIZE-SNAKE_GAP,
                 preY*BLOCK_SIZE+SNAKE_GAP
                 );
             FillRect(hdc, &lprc, hBrush);
         }
-        preX=*itx;
-        preY=*ity;
+        preX=it->x;
+        preY=it->y;
 
     }
+    //蛇头黑点
+    it=snake.points.begin();
+    SetRect(&lprc,
+                it->x*BLOCK_SIZE+BLOCK_SIZE/4,
+                it->y*BLOCK_SIZE+BLOCK_SIZE/4,
+                it->x*BLOCK_SIZE+BLOCK_SIZE-BLOCK_SIZE/4,
+                it->y*BLOCK_SIZE+BLOCK_SIZE-BLOCK_SIZE/4
+                );
+    FillRect(hdc, &lprc, (HBRUSH)10);
+
     DeleteObject(hBrush);
 
 }
@@ -333,6 +360,33 @@ static void drawBox(HDC hdc,int x,int y)
     SelectObject(hdc, hPen);
     DeleteObject(hBluePen);
 
+}
+
+static void drawShortPath(HDC hdc)
+{
+    RECT lprc;
+    HBRUSH hJamBrush = CreateSolidBrush(RGB(0x19, 10, 0xab));
+
+    for(int i=0;i<25;i++)
+    {
+        for(int j=0;j<25;j++)
+        {
+            if(thread_comm.shortMap[i][j]!=-1)
+            {
+                char s[10];
+                sprintf(s,"%d",thread_comm.shortMap[i][j]);
+                SetRect(&lprc,
+                    i*BLOCK_SIZE+20,
+                    j*BLOCK_SIZE+10,
+                    i*BLOCK_SIZE+36,
+                    j*BLOCK_SIZE+30
+                    );
+                DrawText(hdc,s,-1,&lprc,DT_NOCLIP|DT_SINGLELINE);
+            }
+        }
+
+    }
+    DeleteObject(hJamBrush);
 }
 
 
@@ -375,9 +429,13 @@ static void keyboard(WPARAM wParam)
     case VK_F3:
         keyPressed(23);
         break;
-
+    case VK_F4:
+        keyPressed(24);
+        break;
+/*
     default:
         printf("key: %d\n",wParam);
+*/
     }
 }
 

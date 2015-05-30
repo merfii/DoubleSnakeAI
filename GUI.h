@@ -18,26 +18,35 @@ void DISPLOCK();
 void DISPUNLOCK();
 
 
-//0 ×ó 1ÏÂ 2ÓÒ 3 ÉÏ
+//0 Ğ²Ğ¡ 1Ğ¾Ğ± 2ÑÑ€ 3 Ğ¸Ğ¾
 static const int dx[4]= {-1,0,1,0};
 static const int dy[4]= {0,1,0,-1};
 
-class MapBasic
+class Point
 {
 public:
-    int m,n;
-    bool obst[25][25];
-    int Xarray[100];
-    int Yarray[100];
-    int obst_count;
+    int x,y;
 
-    MapBasic()
+    Point()
     {
-        m=1;n=1;
-        obst_count=0;
-        for(int i=0; i<25; i++)
-            for(int j=0; j<25; j++)
-                obst[i][j]=false;
+        x=0;y=0;
+    }
+
+    Point(const Point &p)
+    {
+        x=p.x;
+        y=p.y;
+    }
+
+    Point(int _x,int _y)
+    {
+        x=_x;
+        y=_y;
+    }
+
+    bool operator==(Point &a)
+    {
+        return (a.x==x)&&(a.y==y);
     }
 };
 
@@ -45,75 +54,76 @@ public:
 class Snake
 {
 public:
-    list<int> x;
-    list<int> y;
-    int length;
 
+    list<Point> points;
 
     Snake()
     {
-        length=0;
     }
 
-    Snake(Snake &old)
+    Snake(const Snake &old)
     {
-        length=old.length;
-        x=old.x;
-        y=old.y;
-
+        points=old.points;
     }
 
-    void push(int _x,int _y)
+    void addHead(Point head)
     {
-        x.push_front(_x);
-        y.push_front(_y);
-        length++;
+        points.push_front(head);
     }
 
-
-    bool whetherGrow(int steps)  //±¾»ØºÏÊÇ·ñÉú³¤
+    bool whetherGrow(int steps)  //æœ¬å›åˆæ˜¯å¦ç”Ÿé•¿
     {
         if (steps<=9) return true;
         if ((steps-9)%3==0) return true;
         return false;
     }
 
-
-    void move(int dire,int steps)
+    void move(int dire)
     {
-        x.push_front(x.front()+dx[dire]);
-        y.push_front(y.front()+dy[dire]);
-        if(whetherGrow(steps))
+        Point head=points.front();
+        points.push_front(Point(head.x+dx[dire],head.y+dy[dire]));
+    }
+
+    void deleteTail(int steps)
+    {
+        if(!whetherGrow(steps))
         {
-            length++;
-        }
-        else
-        {
-            x.pop_back();
-            y.pop_back();
+            points.pop_back();
         }
     }
 
-    int getNextX(int dir)
+    Point getNext(int dire)
     {
-        return x.front()+dx[dir];
-    }
-
-    int getNextY(int dir)
-    {
-        return y.front()+dy[dir];
+        return Point(
+            points.front().x+dx[dire] ,
+            points.front().y+dy[dire]
+                     );
     }
 
 
-    int getNextX_n(int dir,int n)
+    Point getNextN(int dire,int n)
     {
-        return x.front()+n*dx[dir];
+        return Point(
+            points.front().x+n*dx[dire],
+            points.front().y+n*dy[dire]
+                     );
     }
+};
 
-    int getNextY_n(int dir,int n)
+
+class MapBasic
+{
+public:
+    int w,h;
+    bool obst[25][25];
+    int obst_count;
+    MapBasic()
     {
-        return y.front()+n*dy[dir];
+        for(int i=0; i<25; i++)
+            for(int j=0; j<25; j++)
+                obst[i][j]=false;
     }
+    int Xarray[100],Yarray[100];
 };
 
 void updateDisp(MapBasic &mb,Snake &snk0,Snake &snk1);

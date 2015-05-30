@@ -1,12 +1,11 @@
 # depslib dependency file v1.0
-1432561589 source:c:\users\mzf\documents\github\doublesnakeai\recursive.cpp
+1432969709 source:c:\users\mzf\documents\github\doublesnakeai\recursive.cpp
 	<cstdio>
 	<cstdlib>
 	<cstring>
 	<iostream>
 	<list>
 	<string>
-	<ctime>
 	"jsoncpp/json.h"
 
 1432361605 c:\users\mzf\documents\github\doublesnakeai\jsoncpp\json.h
@@ -70,7 +69,7 @@
 	<math.h>
 	<float.h>
 
-1432562204 source:c:\users\mzf\documents\github\doublesnakeai\main.cpp
+1432965482 source:c:\users\mzf\documents\github\doublesnakeai\main.cpp
 	<windows.h>
 	<process.h>
 	<stdio.h>
@@ -98,14 +97,16 @@
 	"ConDraw.h"
 	<ctype.h>
 
-1432553730 c:\users\mzf\documents\github\doublesnakeai\gui.h
+1432837949 c:\users\mzf\documents\github\doublesnakeai\gui.h
 	<list>
 
-1432562391 source:c:\users\mzf\documents\github\doublesnakeai\controller.cpp
+1432965468 source:c:\users\mzf\documents\github\doublesnakeai\controller.cpp
 	<windows.h>
 	<string>
 	<cstdio>
 	<vector>
 	"jsoncpp/json.h"
 	"GUI.h"
+
+1432914683 c:\users\mzf\documents\github\doublesnakeai\heap.hpp
 
