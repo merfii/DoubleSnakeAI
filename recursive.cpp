@@ -7,9 +7,9 @@
 #include "jsoncpp/json.h"
 
 #define MAX_MAP 32  //本来是25 为了优化对齐改为2^5
-#define FREE_DEPS 6
-#define KILL_DEPS 8
-#define FREE_LOW_LEVEL 80
+#define FREE_DEPS 5
+#define KILL_DEPS 5
+#define FREE_LOW_LEVEL 140
 
 #define ABS(a) ((a>0)?(a):(-a))
 
@@ -56,8 +56,7 @@ public:
     list<Point> points;
 
     Snake()
-    {
-    }
+    {}
 
     Snake(const Snake &old)
     {
@@ -141,6 +140,11 @@ public:
     bool obstAndSnake[MAX_MAP][MAX_MAP];
     int w,h;
 
+    Map()
+    {
+        pMapBasic=NULL;
+    }
+
     Map(MapBasic *mapBasic,Snake &snake0,Snake &snake1)
     {
         pMapBasic=mapBasic;
@@ -214,13 +218,10 @@ typedef struct _Block
 }Block;
 
 #ifdef LOCAL
-//#include "Heap.hpp"
 void updateShortPath(int sm[MAX_MAP][MAX_MAP]);
 #endif
-
 #define MIN(X,Y) ((X)<(Y)?(X):(Y))
 //小顶堆
-
 class MinHeap
 {
 
@@ -255,6 +256,7 @@ public:
         }
         heap[i]=x;
         heap[i]->index=i;
+
     }
 
     Block *removeMin()
@@ -264,8 +266,7 @@ public:
             return NULL;
 
         Block *min=heap[1];
-        Block *last=heap[heap_size];
-        heap_size--;
+        Block *last=heap[heap_size--];
         int child;
 
         int i;
@@ -297,6 +298,7 @@ public:
             return;
 
         int i=x->index;
+        //printf("i=%d ",i);
         if(heap[i]->val < heap[i/2]->val)
         {
             //改小了，应该上浮
@@ -350,6 +352,8 @@ public:
         }
     }
 };
+
+
 
 void mapWeight(Map &map,Snake &snk0,Snake &snk1,int steps,Block vertices[MAX_MAP*MAX_MAP])
 {
@@ -448,7 +452,9 @@ static Rank connectness(Map &map,Snake &snake0,Snake &snake1,int steps)
 
     int direSeries[20];
     int direSerCount;
-    float best_jam=10000;int best_dire=0;
+    float best_jam=10000,max_jam=0;
+    int best_dire=0;
+
     Block m0[MAX_MAP*MAX_MAP];
     Block m1[MAX_MAP*MAX_MAP];
 
@@ -487,10 +493,10 @@ static Rank connectness(Map &map,Snake &snake0,Snake &snake1,int steps)
                         continue;
                     if(m1[ii*MAX_MAP+jj].val<0)
                     {
-                        S+=1/2.0f;
+                        S+=1/3.0f;
                     }else
                     {
-                        S+=1/(1+(float)m1[ii*MAX_MAP+jj].val);
+                        S+=4/(1.5+(float)m1[ii*MAX_MAP+jj].val);
                     }
 
                 }
@@ -517,11 +523,135 @@ static Rank connectness(Map &map,Snake &snake0,Snake &snake1,int steps)
                 updateShortPath(out);
 #endif
             }
+            if(S>max_jam)
+                max_jam=S;
         }
     }
+    if(max_jam-best_jam>20)
+        return Rank(best_dire,best_jam);
+    else
+        return Rank(-1,max_jam-best_jam);
+}
 
 
-    return Rank(best_dire,best_jam);
+static float deadend(Map &oldmap,Snake &snk0,Snake &snk1,
+                    int dire,int steps,int depths)
+{
+    //如果不用递归恐怕十分难写 因为求最值需要保存16^n个返回值
+
+   if(depths<0)
+    {
+        Block m[MAX_MAP*MAX_MAP];
+        mapWeight(oldmap,snk0,snk1,steps,m);
+
+        float S=0;
+        for(int ii=0;ii<=oldmap.w;ii++)
+        {
+            for(int jj=0;jj<=oldmap.h;jj++)
+            {
+                float v=m[ii*MAX_MAP+jj].val;
+                if(v>0 && v<30)
+                {
+                    S+=1+v/10;
+                }
+            }
+        }
+        return S;
+    }
+
+    Snake snake0(snk0);
+    Snake snake1(snk1);
+    snake0.deleteTail(steps);
+    snake1.deleteTail(steps);
+    Map map(oldmap,snake0,snake1);
+    if(!map.isValid(snake0.getNext(dire)))
+    {
+        return 0;
+    }
+    snake0.move(dire);
+    float shortest=1000.0f;
+    for(int i=0;i<3;i++)
+    {
+        if(!map.isValid(snake1.getNext(i)))
+            continue;
+
+        Snake next(snake1);
+        next.move(i);
+        int j;
+        float longest=0;
+        for(j=0;j<4;j++)
+        {
+            float r;
+            r=deadend(map,snake0,next,j,steps+1,depths-1);
+            if(r>longest)
+                longest=r;
+        }
+        if(shortest>longest)
+            shortest=longest;
+    }
+    return shortest;
+
+/*
+    Map maps[3];
+    Snake snakes[2][2];
+
+    snakes[0][0]=snk0;
+    snakes[0][0].deleteTail(steps);
+    snakes[0][1]=snk1;
+    snakes[0][1].deleteTail(steps);
+    maps[0]=Map(oldmap,snakes[0][0],snakes[0][1]);
+
+    if(!maps[0].isValid(snakes[0][0].getNext(dire)))
+        return Rank(dire,0);
+    snakes[0][0].move(dire);
+
+    float shortest0=1000.0f;
+    for(int dire01=0;dire01<4;dire01++)
+    {
+        if(!maps[0].isValid(snakes[0][1].getNext(dire01)))
+            continue;
+        snakes[0][1].move(dire01);
+
+        snakes[1][0]=snakes[0][0];
+        snakes[1][1]=snakes[0][1];
+        snakes[1][0].deleteTail(steps+1);
+        snakes[1][1].deleteTail(steps+1);
+        maps[1]=Map(oldmap,snakes[1][0],snakes[1][1]);
+        float longest1=0;
+        for(int dire10=0;dire10<4;dire10++)
+        {
+            if(!maps[1].isValid(snakes[1][0].getNext(dire10)))
+                continue;
+            snakes[1][0].move(dire10);
+
+            float shortest1=1000.0f;
+            for(int dire11=0;dire11<4;dire11++)
+            {
+                if(!maps[1].isValid(snakes[1][1].getNext(dire11)))
+                    continue;
+                snakes[1][1].move(dire11);
+
+
+
+                snakes[1][1]=snakes[0][1];
+                snakes[1][1].deleteTail(steps+1);
+            }
+            if(shortest1>longest1)
+                longest1=shortest1;
+
+            snakes[1][0]=snakes[0][0];
+            snakes[1][0].deleteTail(steps+1);
+        }
+
+        if(longest1<shortest0)
+            shortest0=longest1;
+
+        snakes[1][0]=snk1;
+        snakes[1][0].deleteTail(steps);
+    }
+
+    return Rank(dire,shortest0);
+    */
 }
 
 static int simplePred(Map &map,Point p,int depths)
@@ -570,35 +700,32 @@ static Rank predict(Map &oldmap,Snake &snk0,Snake &snk1,
     Snake snake1(snk1);
     snake0.deleteTail(steps);
     snake1.deleteTail(steps);
-    Map *map=new Map(oldmap,snake0,snake1);
+    Map map(oldmap,snake0,snake1);
 
-    if(!map->isValid(snake0.getNext(dire)))
+    if(!map.isValid(snake0.getNext(dire)))
     {
-        delete map;
         return Rank(dire,0);
     }
 
     if(depths<0)
     {
         int n=1;
-        while(map->isValid(snake0.getNextN(dire,n)))
+        while(map.isValid(snake0.getNextN(dire,n)))
             n++;
         if(n<0)
             printf("Bug Warnning! n=%d\n",n);
-        delete map;
         return Rank(dire,n);
     }
     //可以走
 
     //敌方行动
-    snake1.move(simpleDire(*map,snake1));
+    snake1.move(simpleDire(map,snake1));
     //己方行动
     snake0.move(dire);
 
     if(snake0.points.front()==snake1.points.front())
     {
         //两蛇头撞在一起
-        delete map;
         return Rank(dire,1);
     }
 
@@ -610,10 +737,9 @@ static Rank predict(Map &oldmap,Snake &snk0,Snake &snk1,
             continue;
 
         //下一级预测
-        rank+=predict(*map,snake0,snake1,
+        rank+=predict(map,snake0,snake1,
                       dire_next,steps+1,depths-1);
     }
-    delete map;
     return rank;
 }
 
@@ -637,11 +763,10 @@ static bool localKilling(Map &oldmap,Snake &snk0,Snake &snk1,
     Snake snake1(snk1);
     snake0.deleteTail(steps);
     snake1.deleteTail(steps);
-    Map *map=new Map(oldmap,snake0,snake1);
+    Map map(oldmap,snake0,snake1);
 
-    if(!map->isValid(snake0.getNext(dire)))
+    if(!map.isValid(snake0.getNext(dire)))
     {
-        delete map;
         return false;
     }
 
@@ -649,7 +774,7 @@ static bool localKilling(Map &oldmap,Snake &snk0,Snake &snk1,
 
     for(int i=0;i<4;i++)
     {
-        if(!map->isValid(snake1.getNext(i)))
+        if(!map.isValid(snake1.getNext(i)))
         {
             continue;
         }
@@ -659,21 +784,21 @@ static bool localKilling(Map &oldmap,Snake &snk0,Snake &snk1,
         int j;
         for(j=0;j<4;j++)
         {
-            if(localKilling(*map,snake0,next,j,steps+1,depths-1))
+            if(localKilling(map,snake0,next,j,steps+1,depths-1))
                 break;
         }
         if(j>=4)
         {
-            //对方这样走 你怎么走都赢不了 失败
-            delete map;
+            //对方这样走 你怎么走都赢不了 无杀
             return false;
         }
     }
-    delete map;
     return true;
 }
 
+
 //static string turnString[4]={"Left","Down","Right","Up"};
+
 static int calDire(Map &map,Snake &snake0,Snake &snake1,int steps)
 {
     for(int dire=0; dire<4; dire++)
@@ -682,41 +807,90 @@ static int calDire(Map &map,Snake &snake0,Snake &snake1,int steps)
             return dire;
     }
 
-    Rank rank[5];
-    Rank best_rank(0,-1);
+    Rank rank[2][4];
+    Rank con;
     for(int dire=0; dire<4; dire++)
     {
-        rank[dire]=predict(map,snake0,snake1,
+        rank[0][dire]=predict(map,snake0,snake1,
                      dire,steps,FREE_DEPS);
-#ifdef LOCAL
-        printf("%3.1f  ",rank[dire].freedom);
-#endif
-        if(rank[dire].freedom>best_rank.freedom)
-        {
-            best_rank=rank[dire];
-            best_rank.dire=dire;
-        }
+        rank[1][dire].freedom=
+            deadend(map,snake0,snake1,dire,steps,3);
+        rank[1][dire].dire=dire;
     }
+    con=connectness(map,snake0,snake1,steps);
 
-    rank[4]=connectness(map,snake0,snake1,steps);
+    //插入排序
+    for(int i=1;i<4;i++)
+    {
+        Rank tmp=rank[0][i];
+        int j=i;
+        while(j>0 && rank[0][j-1].freedom<tmp.freedom)
+        {
+            rank[0][j]=rank[0][j-1];
+            j--;
+        }
+        rank[0][j]=tmp;
+    }
+    for(int i=1;i<4;i++)
+    {
+        Rank tmp=rank[1][i];
+        int j=i;
+        while(j>0 && rank[1][j-1].freedom<tmp.freedom)
+        {
+            rank[1][j]=rank[1][j-1];
+            j--;
+        }
+        rank[1][j]=tmp;
+    }
 
     #ifdef LOCAL
-    printf("\nfreedom:    %d   %3.1f\n",best_rank.dire,best_rank.freedom);
-    printf("connectness %d %3.1f\n",rank[4].dire,rank[4].freedom);
+    for(int i=0;i<4;i++)
+        printf("%d: %3.1f  ",rank[0][i].dire,rank[0][i].freedom);
+    printf("\n");
+    for(int i=0;i<4;i++)
+        printf("%d: %3.1f  ",rank[1][i].dire,rank[1][i].freedom);
+    printf("\n");
+    //printf("\nfreedom:    %d   %3.1f\n",best_rank.dire,best_rank.freedom);
+    printf("connectness %d %3.1f\n\n",con.dire,con.freedom);
     #endif
 
-    if(best_rank.dire==rank[4].dire)
+    if(con.dire>=0 && rank[0][0].dire==con.dire && rank[0][0].freedom>100)
     {
-        return best_rank.dire;
-    }else if(rank[rank[4].dire].freedom>FREE_LOW_LEVEL)
-    {
-        if(rank[4].freedom<45)
-           return rank[4].dire;
+        return con.dire;
     }
-    return best_rank.dire;
+    if(con.dire>=0 && rank[0][1].dire==con.dire && rank[0][1].freedom>150)
+    {
+        return con.dire;
+    }
+
+
+    float ratio1,ratio2;
+    ratio1=rank[0][0].freedom-rank[0][1].freedom;
+    if(rank[1][1].freedom<2)
+        ratio2=5;
+    else
+        ratio2=rank[1][0].freedom/rank[1][1].freedom;
+
+    if(ratio1<100 && ratio2<1.2
+       && rank[0][1].freedom> 100 && rank[1][1].freedom> 100)
+    {
+        if(rank[0][1].dire==con.dire )
+              return con.dire;
+        if(rank[1][1].dire==con.dire )
+              return con.dire;
+    }
+
+    if(rank[1][0].dire==rank[0][0].dire)
+    {
+        return rank[1][0].dire;
+    }
+
+    if(ratio1<100 && ratio2>1.4 && rank[0][0].freedom> 50)
+        return rank[1][0].dire;
+
+    return rank[0][0].dire;
 
 }
-
 
 #ifdef LOCAL
 string mai(string inputString)
@@ -789,7 +963,7 @@ int main()
     Json::Value ret;
     int dire=calDire(map,snake0,snake1,steps);
     ret["response"]["direction"]=dire;
-    ret["debug"]=debug_msg;
+    //ret["debug"]=debug_msg;
     Json::FastWriter writer;
 #ifdef LOCAL
     return writer.write(ret);
